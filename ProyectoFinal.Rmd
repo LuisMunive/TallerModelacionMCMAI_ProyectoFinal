@@ -25,4 +25,17 @@ header-includes: \usepackage{float}
 \end{center}
 \end{table}
 
+```{r fig.align='center', message=FALSE, echo=FALSE, fig.cap="Direcciones de 76 tortugas, después de depositar sus huevos en la playa."}
+library(CircStats)
+angulosTortugas <- c(8, 27, 45, 53, 64, 73, 88, 9, 30, 47, 56, 64, 78, 88,
+                    13, 34, 48, 57, 64, 78, 90, 13, 38, 48, 58, 65, 78, 92,
+                    14, 38, 48, 58, 65, 83, 92, 18, 40, 48, 61, 68, 83, 93,
+                    22, 44, 50, 63, 70, 88, 95, 96, 138, 226, 257, 98, 153,
+                    237, 268, 100, 153, 238, 285, 103, 155, 243, 319, 106,
+                    204, 244, 343, 113, 215, 250, 350, 118, 223, 251)
+angulosTortugasRad <- angulosTortugas * pi / 180
+circ.plot(x = angulosTortugasRad, stack = TRUE, bins = 23, shrink = 1.5, dotsep = 20, 
+          main = "Datos de Tortugas")
+```
 
+Un modelo propuesto por los biólogos para modelar la variable angular $\theta$ que se propone es el siguiente
