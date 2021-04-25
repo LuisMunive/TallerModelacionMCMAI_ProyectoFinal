@@ -1,0 +1,11 @@
+---
+title: "Proyecto Final. Taller de Modelación Matemática I. MCMAI"
+author: "Rodrigo Zúñiga Trejo & Luis Ramón Munive Hernández"
+date: "Mayo 6, 2021"
+output:
+  pdf_document: default
+header-includes: \usepackage{float}
+---
+
+
+
