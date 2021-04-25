@@ -25,4 +25,4 @@ header-includes: \usepackage{float}
 \end{center}
 \end{table}
 
-
+Un modelo propuesto por los biólogos para modelar la variable angular $\theta$ que se propone es el siguiente
