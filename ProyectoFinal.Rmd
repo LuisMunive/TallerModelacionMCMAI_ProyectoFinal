@@ -7,5 +7,22 @@ output:
 header-includes: \usepackage{float}
 ---
 
+\textbf{Problema-1}: El siguiente conjunto de datos representa la \textit{dirección} (ángulos $\theta_i$) que tomaron 76 tortugas después de depositar sus huevos en alguna costa de Guerrero. Los biólogos encargados del estudio desean hacer inferencias sobre la población de tortugas que depositan sus huevos en estas costas. En particular, desean describir el comportamiento de estos datos a través de un modelo estadístico que les permita hacer conclusiones probabilísticas sobre toda la población con base en esta muestra de registros. Los datos en ángulos se muestran en la siguiente Tabla, su representación gráfica se muestra en la Figura 1.
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{rrrrrrrrrrr}
+\hline
+8 & 27 & 45 & 53 & 64 & 73 & 88 & 96 & 138 & 226 & 257 \\
+9 & 30 & 47 & 56 & 64 & 78 & 88 & 98 & 153 & 237 & 268 \\
+13 & 34 & 48 & 57 & 64 & 78 & 90 & 100 & 153 & 238 & 285 \\
+13 & 38 & 48 & 58 & 65 & 78 & 92 & 103 & 155 & 243 & 319 \\
+14 & 38 & 48 & 58 & 65 & 83 & 92 & 106 & 204 & 244 & 343 \\
+18 & 40 & 48 & 61 & 68 & 83 & 93 & 113 & 215 & 250 & 350 \\
+22 & 44 & 50 & 63 & 70 & 88 & 95 & 118 & 223 & 251 & \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
 
 
