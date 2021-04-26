@@ -103,6 +103,11 @@ MHdentroGibbs <- function(theta, N){
   # Número de datos
   n <- length(theta)
   
+  #Programacion en paralelo
+  #library(parallel)
+  #n.cores <- round(detectCores(logical = FALSE) / 2)
+  #n.cores <- 2
+  
   # Hiperparámetros de la distribución inicial para el vector mu
   lambda1_0 <- 0.001
   lambda2_0 <- 0.001
@@ -122,22 +127,32 @@ MHdentroGibbs <- function(theta, N){
     mu1[i] <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * mu1[i - 1] + n * mean(r[i - 1, ] * cos(theta))), sd = 1 / sqrt(lambda1_n))
     set.seed(i+3)##########################   Fijamos semilla
     mu2[i] <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * mu2[i - 1] + n * mean(r[i - 1, ] * sin(theta))), sd = 1 / sqrt(lambda2_n))
+
     for(j in 1:n){
-      r[i, j] <- MetroHast(f = kerY, theta = theta[j], mu = c(mu1[i], mu2[i]), burn = 2500, ite.inter = 500, lag = 20, tmues = 1000)[1000]
-    }
+      #Iniciamos con la creacion del cluster
+      #cl<-makeCluster(n.cores)
+      
+      #r[i, j] <-parSapply(cl,X=c(theta[j],theta[j+1]), MetroHast(f = kerY, theta = theta[j], mu = c(mu1[i], mu2[i]), burn = 2500, ite.inter = 500, lag = 1, tmues = 1),simplify = TRUE)
+     r[i, j] <- MetroHast(f = kerY, theta = theta[j], mu = c(mu1[i], mu2[i]), burn = 2500, ite.inter = 500, lag = 1, tmues = 1)
+    
+      #Cerramos el cluster
+      #stopCluster(cl)
+     }
   }
+
   return(list(mu1, mu2, r))
 }
 
 ```
 
 ```{r}
-tiempoInicio <- Sys.time()
 datos <- (pi/180)*read.table("C:\\Users\\rodri\\OneDrive\\Documents\\escuela\\UAM\\trimestre 21-I\\Taller de modelado I\\PROYECTO\\DTP.txt", sep = "|", header = TRUE)
 
 #prueba <- MHdentroGibbs(theta = c(pi/4, 3*pi/2), N = 10)
 #prueba <- MHdentroGibbs(theta = datos[,1], N = 10)
 #circ.plot(x = datos[,1], stack = TRUE, bins = 23, shrink = 1.5, dotsep = 20,main = "Datos de Tortugas prueba")
+
+tiempoInicio <- Sys.time()
 prueba <- MHdentroGibbs(theta = angulosTortugasRad, N = 100)
 tiempoFin <- Sys.time()
 tiempoFin - tiempoInicio
