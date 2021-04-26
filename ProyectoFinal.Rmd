@@ -80,10 +80,12 @@ MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues){
   # Iteraciones del algoritmo
   for (j in 1 : ite)
   {
+    set.seed(j+3)##########################   Fijamos semilla
     y1 <- rnorm(N, m0, sqrt(v0))
     w1 <- f(y1, theta, mu) / dnorm(y1, m0, sqrt(v0))
     w0 <- f(y0, theta, mu) / dnorm(y0, m0, sqrt(v0))
     alpha <- w1 / w0
+    set.seed(j+3)##########################   Fijamos semilla
     u <- runif(N, 0, 1)
     aux <- ifelse(u <= alpha, y1, y0)
     y0 <- aux
@@ -116,7 +118,9 @@ MHdentroGibbs <- function(theta, N){
   r <- matrix(data = 1, nrow = N, ncol = n, byrow = TRUE)
   
   for(i in 2:N){
+    set.seed(i+3)##########################   Fijamos semilla
     mu1[i] <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * mu1[i - 1] + n * mean(r[i - 1, ] * cos(theta))), sd = 1 / sqrt(lambda1_n))
+    set.seed(i+3)##########################   Fijamos semilla
     mu2[i] <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * mu2[i - 1] + n * mean(r[i - 1, ] * sin(theta))), sd = 1 / sqrt(lambda2_n))
     for(j in 1:n){
       r[i, j] <- MetroHast(f = kerY, theta = theta[j], mu = c(mu1[i], mu2[i]), burn = 2500, ite.inter = 500, lag = 20, tmues = 1000)[1000]
@@ -129,7 +133,11 @@ MHdentroGibbs <- function(theta, N){
 
 ```{r}
 tiempoInicio <- Sys.time()
+datos <- (pi/180)*read.table("C:\\Users\\rodri\\OneDrive\\Documents\\escuela\\UAM\\trimestre 21-I\\Taller de modelado I\\PROYECTO\\DTP.txt", sep = "|", header = TRUE)
+
 #prueba <- MHdentroGibbs(theta = c(pi/4, 3*pi/2), N = 10)
+#prueba <- MHdentroGibbs(theta = datos[,1], N = 10)
+#circ.plot(x = datos[,1], stack = TRUE, bins = 23, shrink = 1.5, dotsep = 20,main = "Datos de Tortugas prueba")
 prueba <- MHdentroGibbs(theta = angulosTortugasRad, N = 100)
 tiempoFin <- Sys.time()
 tiempoFin - tiempoInicio
