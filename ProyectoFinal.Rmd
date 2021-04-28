@@ -70,41 +70,45 @@ MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
   
   m0 <- media0(theta, mu)
   v0 <- var0(theta, mu)
+  #set.seed(29)
   y0 <- rnorm(N, m0, sqrt(v0))
   #y0 <- rep(1,N)
   #y0 <- 1
   #y0 <- exp(m0)
   
-  y <- rep(NA, tmues)
-  #n.sample <- 0
+  y <- matrix(NA,nrow = tmues,ncol = N,byrow = TRUE)
+  n.sample <- 0
   
   # Iteraciones del algoritmo
   for (j in 1 : ite)
   {
-    set.seed(j+3)##########################   Fijamos semilla
+    #set.seed(j)##########################   Fijamos semilla
     y1 <- rnorm(N, m0, sqrt(v0))
     w1 <- f(y1, theta, mu) / dnorm(y1, m0, sqrt(v0))
     w0 <- f(y0, theta, mu) / dnorm(y0, m0, sqrt(v0))
     alpha <- w1 / w0
-    set.seed(j+3)##########################   Fijamos semilla
+    #set.seed(j)##########################   Fijamos semilla
     u <- runif(N, 0, 1)
     aux <- ifelse(u <= alpha, y1, y0)
     y0 <- aux
     if(j > burn.tot & ( j %% lag) == 0){
-      #n.sample <- n.sample + 1
-      #y[n.sample] <- exp(y0)
-      y <- exp(y0)
+      n.sample <- n.sample + 1
+      y[n.sample, ] <- exp(y0)
     }
   }
-  drop(y)
+  A <- apply(y,MARGIN = 2,fun = mean)
+  drop(A)
 }
 
 ################################################################################
 
-MHdentroGibbs <- function(theta, N){
+MHdentroGibbs <- function(theta, N, burn.G, ite.inter.G, lag.G){
   # Número de datos
   n <- length(theta)
-
+  
+  #Definiendo variables
+  ite=burn.G+ite.inter.G+lag.G*N
+  Tburn=burn.G+ite.inter.G
   
   # Hiperparámetros de la distribución inicial para el vector mu
   lambda1_0 <- 0.001
@@ -114,21 +118,33 @@ MHdentroGibbs <- function(theta, N){
   lambda1_n <- lambda1_0 + n
   lambda2_n <- lambda2_0 + n
   
-  
+  #Declarando vectores y contadores a ocupar
   mu1 <- rep(0, N)
   mu2 <- rep(0, N)
   r <- matrix(data = 1, nrow = N, ncol = n, byrow = TRUE)
+  cont <- 1
+  muaux1 <- 0
+  muaux2 <- 0
+  raux <- rep(1, n)
   
-  for(i in 2:N){
-    set.seed(i+3)##########################   Fijamos semilla
-    mu1[i] <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * mu1[i - 1] + n * mean(r[i - 1, ] * cos(theta))), sd = 1 / sqrt(lambda1_n))
+  for(i in 2:ite){
+      #set.seed(i)##########################   Fijamos semilla
+      muaux1 <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * muaux1 + n * mean(raux * cos(theta))), sd = 1 / sqrt(lambda1_n))
     
-    set.seed(i+3)##########################   Fijamos semilla
-    mu2[i] <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * mu2[i - 1] + n * mean(r[i - 1, ] * sin(theta))), sd = 1 / sqrt(lambda2_n))
+      #set.seed(i)##########################   Fijamos semilla
+      muaux2 <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * muaux2 + n * mean(raux * sin(theta))), sd = 1 / sqrt(lambda2_n))
 
-     r[i,] <- MetroHast(f = kerY, theta = theta, mu = c(mu1[i], mu2[i]), burn = 2500, ite.inter = 500, lag = 1, tmues = 1, n)
+      raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 1500, ite.inter = 500, lag = 10, tmues = 100, n)
+   
+      if(i>Tburn & (i %% lag.G) == 0){
+          mu1[cont] <- muaux1
+          mu2[cont] <- muaux2
+          r[cont,] <- raux
+          cont<-cont+1
+      }
+     
   }
-
+    
   return(list(mu1, mu2, r))
 }
 
@@ -137,12 +153,14 @@ MHdentroGibbs <- function(theta, N){
 ```{r}
 tiempoInicio <- Sys.time()
 
-  #prueba <- MHdentroGibbs(theta = c(pi/4, 3*pi/2), N = 10)
-  prueba <- MHdentroGibbs(theta = angulosTortugasRad, N = 10)
-  #prueba2 <- MHdentroGibbs(theta = angulosTortugasRad, N = 10)
-  #prueba <- MHdentroGibbs(theta = angulosTortugasRad, N = 100)
-  #prueba <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000)
+  prueba3 <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000,burn.G = 500, ite.inter.G =  100, lag = 5)
+  #prueba2 <- MHdentroGibbs(theta = angulosTortugasRad, N = 100)
+  #prueba2 <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000)
 
+ergomu1<-cumsum(prueba3[[1]])/(1:1000)
+plot(ergomu1,type="l",main="Promedios ergodicos de mu1")
+ergomu2<-cumsum(prueba3[[2]])/(1:1000)
+plot(ergomu2,type="l",main="Promedios ergodicos de mu2")
 
 tiempoFin <- Sys.time()
 tiempoFin - tiempoInicio
