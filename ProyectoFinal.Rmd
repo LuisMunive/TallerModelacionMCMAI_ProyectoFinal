@@ -38,56 +38,51 @@ circ.plot(x = angulosTortugasRad, stack = TRUE, bins = 23, shrink = 1.5, dotsep 
           main = "Datos de Tortugas")
 ```
 
-Un modelo propuesto por los biólogos para modelar la variable angular $\theta$ que se propone es el siguiente
-
 ```{r}
-## Kernel de la densidad de Y = log R dado theta y mu
+##### Kernel de la densidad de Y = log R dado theta y mu #####
 kerY <- function(y, theta, mu) {
   b <- mu[1] * cos(theta) + mu[2] * sin(theta)
   return(exp(-0.5 * (exp(2 * y) - 2 * b * exp(y)) + 2 * y))
 }
-
-## 2. Funciones para calcular los valores iniciales  de la distribución Normal que se usará
-# como distribución de transición 
+##### Funciones para calcular los valores iniciales  de la distribución #####
+##### Normal que se usará como distribución de transición #####
 media0 <- function(theta, mu){
   b <- mu[1] * cos(theta) + mu[2] * sin(theta)
   return(log(b / 2 + sqrt(b^2 + 8) / 2))
 }
-
 var0 <- function(theta, mu){
   b <- mu[1] * cos(theta) + mu[2] * sin(theta)
   return(2 / (b^2 + b * sqrt(b^2 + 8) + 8))
 }
 
+##### Algoritmo Metropolis-Hastings #####
+
 MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
-  # La función metro2 obtiene todos los valores de la cadena. Elimina el  periodo de calentamiento y 
-  # considera los saltos (lag). Es decir, arroja ya los valores de la muestra final.
+  # La función Metro-Hast obtiene el promedio de todos los valores de la cadena. 
+  # Elimina el periodo de calentamiento, considera los saltos (lag) y promedia.
+  # Es decir, arroja el promedio de las muestra sin calentamiento y considerando el lag
   # Author: Gabriel N
-  # Date: abril 2021.
-  N <- Ncadenas
-  ite <- burn + ite.inter + lag * tmues
-  burn.tot <- burn + ite.inter
+  # Modificado por: Rodrigo Zúñiga Trejo & Luis Ramón Munive Hernández
+  # Date: Abril 2021.
+  N <- Ncadenas # Número de cadenas a simular
+  ite <- burn + ite.inter + lag * tmues # Número total de iteraciones
+  burn.tot <- burn + ite.inter # Número total de iteraciones de calentamiento
   
-  m0 <- media0(theta, mu)
-  v0 <- var0(theta, mu)
-  #set.seed(29)
-  y0 <- rnorm(N, m0, sqrt(v0))
-  #y0 <- rep(1,N)
-  #y0 <- 1
-  #y0 <- exp(m0)
+  m0 <- media0(theta, mu) # Medía para las simulaciones de una Normal
+  v0 <- var0(theta, mu) # Varianza para las simulaciones de una Normal
+
+  y0 <- rnorm(N, m0, sqrt(v0)) # Valores de arranque para las cadenas
   
-  y <- matrix(NA,nrow = tmues,ncol = N,byrow = TRUE)
-  n.sample <- 0
+  y <- matrix(NA, nrow = tmues, ncol = N, byrow = TRUE) # Matriz para guardar las simulaciones 
+                                                     # en cada iteración de todas las cadenas
+  n.sample <- 0 # Contador para guardar las simulaciones de la muestra sin burn-in y con lag
   
   # Iteraciones del algoritmo
-  for (j in 1 : ite)
-  {
-    #set.seed(j)##########################   Fijamos semilla
+  for (j in 1 : ite){
     y1 <- rnorm(N, m0, sqrt(v0))
     w1 <- f(y1, theta, mu) / dnorm(y1, m0, sqrt(v0))
     w0 <- f(y0, theta, mu) / dnorm(y0, m0, sqrt(v0))
     alpha <- w1 / w0
-    #set.seed(j)##########################   Fijamos semilla
     u <- runif(N, 0, 1)
     aux <- ifelse(u <= alpha, y1, y0)
     y0 <- aux
@@ -96,75 +91,146 @@ MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
       y[n.sample, ] <- exp(y0)
     }
   }
-  A <- apply(y,MARGIN = 2,fun = mean)
+  A <- apply(y, MARGIN = 2, FUN = mean) # Promedios de las cadenas considerando la muestra final
   drop(A)
+  #drop(y) # Regresa todas las cadenas simuladas
 }
 
-################################################################################
+##### Algoritmo Metropolis-Hastings dentro Gibbs #####
 
 MHdentroGibbs <- function(theta, N, burn.G, ite.inter.G, lag.G){
-  # Número de datos
-  n <- length(theta)
+  n <- length(theta) # Número de datos
   
-  #Definiendo variables
-  ite=burn.G+ite.inter.G+lag.G*N
-  Tburn=burn.G+ite.inter.G
+  ite <- burn.G + ite.inter.G + lag.G * N # Número total de iteraciones
+  Tburn <- burn.G + ite.inter.G # Número total de iteraciones de calentamiento
   
-  # Hiperparámetros de la distribución inicial para el vector mu
-  lambda1_0 <- 0.001
-  lambda2_0 <- 0.001
+  lambda1_0 <- 0.001 # Hiperparámetro de la distribución inicial para el vector mu
+  lambda2_0 <- 0.001 # Hiperparámetro de la distribución inicial para el vector mu
   
-  #
-  lambda1_n <- lambda1_0 + n
-  lambda2_n <- lambda2_0 + n
+  lambda1_n <- lambda1_0 + n # Hiperparámetro de la distribución final para el vector mu
+  lambda2_n <- lambda2_0 + n # Hiperparámetro de la distribución final para el vector mu
   
-  #Declarando vectores y contadores a ocupar
-  mu1 <- rep(0, N)
-  mu2 <- rep(0, N)
-  r <- matrix(data = 1, nrow = N, ncol = n, byrow = TRUE)
-  cont <- 1
-  muaux1 <- 0
-  muaux2 <- 0
-  raux <- rep(1, n)
+  mu1 <- rep(0, N) # Vector para guardar las simulaciones de mu1
+  mu2 <- rep(0, N) # Vector para guardar las simulaciones de mu2
+  r <- matrix(data = 1, nrow = N, ncol = n, byrow = TRUE) # Matriz para guardar las simulaciones de r_i
+  
+  cont <- 1 # Contador usado en la obtención de la muestra final sin burn-in y con lag
+  muaux1 <- 0 # Variable auxiliar en el algoritmo para guardar valores de mu1 en cada iteración
+  muaux2 <- 0 # Variable auxiliar en el algoritmo para guardar valores de mu2 en cada iteración
+  raux <- rep(1, n) # Vector auxiliar en el algoritmo para guardar valores de r_i en cada iteración
   
   for(i in 2:ite){
-      #set.seed(i)##########################   Fijamos semilla
-      muaux1 <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * muaux1 + n * mean(raux * cos(theta))), sd = 1 / sqrt(lambda1_n))
-    
-      #set.seed(i)##########################   Fijamos semilla
-      muaux2 <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * muaux2 + n * mean(raux * sin(theta))), sd = 1 / sqrt(lambda2_n))
-
-      raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 1500, ite.inter = 500, lag = 10, tmues = 100, n)
-   
-      if(i>Tburn & (i %% lag.G) == 0){
+      muaux1 <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * muaux1 + n * mean(raux * cos(theta))),
+                      sd = 1 / sqrt(lambda1_n))
+      muaux2 <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * muaux2 + n * mean(raux * sin(theta))),
+                      sd = 1 / sqrt(lambda2_n))
+      raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 5000, ite.inter = 2500,
+                        lag = 30, tmues = 500, Ncadenas = n)
+      if(i > Tburn & (i %% lag.G) == 0){
           mu1[cont] <- muaux1
           mu2[cont] <- muaux2
           r[cont,] <- raux
           cont<-cont+1
       }
-     
   }
-    
   return(list(mu1, mu2, r))
 }
-
 ```
 
-```{r}
-tiempoInicio <- Sys.time()
+```{r, eval=FALSE, echo=FALSE}
+### Prueba para analizar convergencia y autocorrelación en el algoritmo Metropolis-Hastings
+set.seed(29042021)
+tiempoInicioPMH <- Sys.time()
+pruebaMH <- MetroHast(f = kerY, theta = angulosTortugasRad, mu = c(0, 0), burn = 0, ite.inter = 0, lag = 1, tmues = 30000, Ncadenas = length(angulosTortugasRad))
+tiempoFinPMH <- Sys.time()
+tiempoEjecPMH <- tiempoFinPMH - tiempoInicioPMH
+tiempoEjecPMH
+```
 
-  prueba3 <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000,burn.G = 500, ite.inter.G =  100, lag = 5)
-  #prueba2 <- MHdentroGibbs(theta = angulosTortugasRad, N = 100)
-  #prueba2 <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000)
+```{r, eval=FALSE, echo=FALSE}
+### Muestra aleatoria para analizar 5 r_i
+set.seed(29042021)
+sort(sample(x = c(1:76), size = 5, replace = FALSE))
+```
 
-ergomu1<-cumsum(prueba3[[1]])/(1:1000)
-plot(ergomu1,type="l",main="Promedios ergodicos de mu1")
-ergomu2<-cumsum(prueba3[[2]])/(1:1000)
-plot(ergomu2,type="l",main="Promedios ergodicos de mu2")
+```{r, eval=FALSE, echo=FALSE}
+# Gráficas de promedios ergódicos de los parámetros obtenidos del algoritmo Metropolis-Hastings
+library(latex2exp)
 
-tiempoFin <- Sys.time()
-tiempoFin - tiempoInicio
+plot(cumsum(pruebaMH[,5]) / c(1:dim(pruebaMH)[1]), type = "l", main = TeX("Promedios ergódicos de $r_{5}$ en Metropolis-Hastings"), xlab = "Iteraciones", ylab = TeX("$r_{5}$"), las = 1)
+
+plot(cumsum(pruebaMH[,24]) / c(1:dim(pruebaMH)[1]), type = "l", main = TeX("Promedios ergódicos de $r_{24}$ en Metropolis-Hastings"), xlab = "Iteraciones", ylab = TeX("$r_{24}$"), las = 1)
+
+plot(cumsum(pruebaMH[,25]) / c(1:dim(pruebaMH)[1]), type = "l", main = TeX("Promedios ergódicos de $r_{25}$ en Metropolis-Hastings"), xlab = "Iteraciones", ylab = TeX("$r_{25}$"), las = 1)
+
+plot(cumsum(pruebaMH[,52]) / c(1:dim(pruebaMH)[1]), type = "l", main = TeX("Promedios ergódicos de $r_{52}$ en Metropolis-Hastings"), xlab = "Iteraciones", ylab = TeX("$r_{52}$"), las = 1)
+
+plot(cumsum(pruebaMH[,72]) / c(1:dim(pruebaMH)[1]), type = "l", main = TeX("Promedios ergódicos de $r_{72}$ en Metropolis-Hastings"), xlab = "Iteraciones", ylab = TeX("$r_{72}$"), las = 1)
+
+# Autocorrelogramas
+
+acf(pruebaMH[,5], main = TeX("Autocorrelograma para $r_{5}$ en Metropolis-Hastings"), lag.max = 100, las = 1)
+
+acf(pruebaMH[,24], main = TeX("Autocorrelograma para $r_{24}$ en Metropolis-Hastings"), lag.max = 100, las = 1)
+
+acf(pruebaMH[,25], main = TeX("Autocorrelograma para $r_{25}$ en Metropolis-Hastings"), lag.max = 100, las = 1)
+
+acf(pruebaMH[,52], main = TeX("Autocorrelograma para $r_{52}$ en Metropolis-Hastings"), lag.max = 100, las = 1)
+
+acf(pruebaMH[,72], main = TeX("Autocorrelograma para $r_{72}$ en Metropolis-Hastings"), lag.max = 100, las = 1)
 ```
 
 
+
+```{r, eval=FALSE, echo=FALSE}
+### Prueba para analizar convergencia y autocorrelación en el algoritmo Metropolis-Hastings dentro Gibbs
+### promediando la muestra obtenida de 500 con un lag de 30 en cada iteración de Metropolis-Hastings
+set.seed(27042021)
+tiempoInicioMHdentroG <- Sys.time()
+pruebaMHdentroG <- MHdentroGibbs(theta = angulosTortugasRad, N = 10000, burn.G = 0, ite.inter.G = 0, lag = 1)
+tiempoFinMHdentroG <- Sys.time()
+tiempoEjecMHdentroG <- tiempoFinMHdentroG - tiempoInicioMHdentroG
+tiempoEjecMHdentroG
+```
+
+```{r, eval=FALSE, echo=FALSE}
+### Escribir archivos con los datos obtenidos de la prueba para el algoritmo Metropolis-Hastings dentro Gibbs
+write.csv(x = pruebaMHdentroG[[1]], file="mu1.csv")
+write.csv(x = pruebaMHdentroG[[2]], file="mu2.csv")
+write.csv(x = pruebaMHdentroG[[3]], file="r.csv")
+write.csv(x = tiempoEjecMHdentroG, file = "tiempoEjecución.csv")
+```
+
+```{r, eval=FALSE, echo=FALSE}
+# Gráficas de promedios ergódicos de los parámetros obtenidos del algoritmo Metropolis-Hastings dentro Gibbs
+plot(cumsum(pruebaMHdentroG[[1]]) / c(1:length(pruebaMHdentroG[[1]])), type = "l", main = TeX("Promedios ergódicos de $\\mu_1$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$\\mu_1$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[2]]) / c(1:length(pruebaMHdentroG[[1]])), type = "l", main = TeX("Promedios ergódicos de $\\mu_2$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$\\mu_2$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,5]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{5}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{5}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,24]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{24}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{24}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,25]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{25}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{25}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,52]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{52}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{52}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,72]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{72}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{72}$"), las = 1)
+
+# Autocorrelogramas
+
+acf(pruebaMHdentroG[[1]], main = TeX("Autocorrelograma para $\\mu_1$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[2]], main = TeX("Autocorrelograma para $\\mu_2$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,5], main = TeX("Autocorrelograma para $r_{5}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,24], main = TeX("Autocorrelograma para $r_{24}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,25], main = TeX("Autocorrelograma para $r_{25}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,52], main = TeX("Autocorrelograma para $r_{52}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,72], main = TeX("Autocorrelograma para $r_{72}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+```
 
