@@ -75,7 +75,7 @@ MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
   
   y <- matrix(NA, nrow = tmues, ncol = N, byrow = TRUE) # Matriz para guardar las simulaciones 
                                                      # en cada iteración de todas las cadenas
-  n.sample <- 0 # Contador para guardar las simulaciones de la muestra sin burn-in y con lag
+  n.sample <- 1 # Contador para guardar las simulaciones de la muestra sin burn-in y con lag
   
   # Iteraciones del algoritmo
   for (j in 1 : ite){
@@ -87,8 +87,8 @@ MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
     aux <- ifelse(u <= alpha, y1, y0)
     y0 <- aux
     if(j > burn.tot & ( j %% lag) == 0){
-      n.sample <- n.sample + 1
       y[n.sample, ] <- exp(y0)
+      n.sample <- n.sample + 1
     }
   }
   A <- apply(y, MARGIN = 2, FUN = mean) # Promedios de las cadenas considerando la muestra final
@@ -119,18 +119,20 @@ MHdentroGibbs <- function(theta, N, burn.G, ite.inter.G, lag.G){
   muaux2 <- 0 # Variable auxiliar en el algoritmo para guardar valores de mu2 en cada iteración
   raux <- rep(1, n) # Vector auxiliar en el algoritmo para guardar valores de r_i en cada iteración
   
-  for(i in 2:ite){
+  for(i in 2 : ite + 1){
       muaux1 <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * muaux1 + n * mean(raux * cos(theta))),
                       sd = 1 / sqrt(lambda1_n))
       muaux2 <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * muaux2 + n * mean(raux * sin(theta))),
                       sd = 1 / sqrt(lambda2_n))
-      raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 5000, ite.inter = 2500,
-                        lag = 30, tmues = 500, Ncadenas = n)
+      #raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 5000, ite.inter = 2500,
+      #                  lag = 30, tmues = 500, Ncadenas = n)     # Estos parámetros fueron para la prueba
+      raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 7500, ite.inter = 2500,
+                        lag = 30, tmues = 100, Ncadenas = n)
       if(i > Tburn & (i %% lag.G) == 0){
           mu1[cont] <- muaux1
           mu2[cont] <- muaux2
-          r[cont,] <- raux
-          cont<-cont+1
+          r[cont, ] <- raux
+          cont <- cont + 1
       }
   }
   return(list(mu1, mu2, r))
@@ -232,5 +234,109 @@ acf(pruebaMHdentroG[[3]][,25], main = TeX("Autocorrelograma para $r_{25}$ en M-H
 acf(pruebaMHdentroG[[3]][,52], main = TeX("Autocorrelograma para $r_{52}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
 
 acf(pruebaMHdentroG[[3]][,72], main = TeX("Autocorrelograma para $r_{72}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+```
+
+
+
+```{r, eval=FALSE, echo=FALSE}
+### Ejecución para obtener la muestra de 1000 mu_1 y mu_2 con el algoritmo Metropolis-Hastings dentro Gibbs
+set.seed(27042021)
+tiempoInicioMHdentroG <- Sys.time()
+pruebaMHdentroG <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000, burn.G = 1500, ite.inter.G = 500, lag = 5)
+tiempoFinMHdentroG <- Sys.time()
+tiempoEjecMHdentroG <- tiempoFinMHdentroG - tiempoInicioMHdentroG
+tiempoEjecMHdentroG
+```
+
+```{r, eval=FALSE, echo=FALSE}
+### Escribir archivos con los datos obtenidos de la prueba para el algoritmo Metropolis-Hastings dentro Gibbs
+write.csv(x = pruebaMHdentroG[[1]], file="mu1.csv")
+write.csv(x = pruebaMHdentroG[[2]], file="mu2.csv")
+write.csv(x = pruebaMHdentroG[[3]], file="r.csv")
+write.csv(x = tiempoEjecMHdentroG, file = "tiempoEjecución.csv")
+```
+
+```{r, eval=FALSE, echo=FALSE}
+# Gráficas de promedios ergódicos de los parámetros obtenidos del algoritmo Metropolis-Hastings dentro Gibbs
+plot(cumsum(pruebaMHdentroG[[1]]) / c(1:length(pruebaMHdentroG[[1]])), type = "l", main = TeX("Promedios ergódicos de $\\mu_1$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$\\mu_1$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[2]]) / c(1:length(pruebaMHdentroG[[1]])), type = "l", main = TeX("Promedios ergódicos de $\\mu_2$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$\\mu_2$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,5]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{5}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{5}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,24]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{24}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{24}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,25]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{25}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{25}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,52]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{52}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{52}$"), las = 1)
+
+plot(cumsum(pruebaMHdentroG[[3]][,72]) / c(1:dim(pruebaMHdentroG[[3]])[1]), type = "l", main = TeX("Promedios ergódicos de $r_{72}$ en M-H dentro Gibbs"), xlab = "Iteraciones", ylab = TeX("$r_{72}$"), las = 1)
+
+# Autocorrelogramas
+
+acf(pruebaMHdentroG[[1]], main = TeX("Autocorrelograma para $\\mu_1$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[2]], main = TeX("Autocorrelograma para $\\mu_2$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,5], main = TeX("Autocorrelograma para $r_{5}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,24], main = TeX("Autocorrelograma para $r_{24}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,25], main = TeX("Autocorrelograma para $r_{25}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,52], main = TeX("Autocorrelograma para $r_{52}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+
+acf(pruebaMHdentroG[[3]][,72], main = TeX("Autocorrelograma para $r_{72}$ en M-H dentro Gibbs"), lag.max = 30, las = 1)
+```
+
+```{r}
+hist(pruebaMHdentroG[[1]], probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\mu_1$"), xlab = TeX("$\\mu_1$"))
+
+hist(pruebaMHdentroG[[2]], probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\mu_2$"), xlab = TeX("$\\mu_2$"))
+```
+
+```{r}
+library(HDInterval)
+hist(x = pruebaMHdentroG[[1]], probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\mu_1$"), xlab = TeX("$\\mu_1$"))
+abline(v = hdi(pruebaMHdentroG[[1]])[[1]], col = "red", lwd = 3, lty = 2)
+abline(v = hdi(pruebaMHdentroG[[1]])[[2]], col = "red", lwd = 3, lty = 2)
+```
+
+```{r}
+hist(x = pruebaMHdentroG[[2]], probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\mu_2$"), xlab = TeX("$\\mu_2$"))
+abline(v = hdi(pruebaMHdentroG[[2]])[[1]], col = "red", lwd = 3, lty = 2)
+abline(v = hdi(pruebaMHdentroG[[2]])[[2]], col = "red", lwd = 3, lty = 2)
+```
+
+```{r}
+### Muestreando de la distribución predictiva del ángulo aleatorio theta
+predTheta <- function(mu1, mu2){
+  n <- length(mu1)
+  x1 <- rep(NA, n)
+  x2 <- rep(NA, n)
+  theta <- rep(NA, n)
+  for(i in 1 : length(pruebaMHdentroG[[1]])){
+    x1[i] <- rnorm(n = 1, mean = mu1[i], sd = 1)
+    x2[i] <- rnorm(n = 1, mean = mu2[i], sd = 1)
+    theta[i] <- atan2(x2[i], x1[i])
+  }
+  return(theta)
+}
+```
+
+```{r}
+muestraTheta <- predTheta(pruebaMHdentroG[[1]], pruebaMHdentroG[[2]])
+
+muestraThetaPositivos <- c(muestraTheta[which(muestraTheta > 0)], muestraTheta[which(muestraTheta < 0)] + 2 * pi )
+```
+
+```{r}
+hist(x = muestraThetaPositivos, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"))
+```
+
+```{r}
+circ.plot(x = muestraThetaPositivos, stack = TRUE, bins = 23, shrink = 1.5, dotsep = 200, 
+          main = TeX("Muestra de $\\theta_{n+1}$"))
+rose.diag(x = muestraThetaPositivos, bins = 23, shrink = 1.5, prop = 2.1)
 ```
 
