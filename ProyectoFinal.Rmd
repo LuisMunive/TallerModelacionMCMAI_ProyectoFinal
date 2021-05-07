@@ -3,7 +3,9 @@ title: "Proyecto Final. Taller de Modelación Matemática I. MCMAI"
 author: "Rodrigo Zúñiga Trejo & Luis Ramón Munive Hernández"
 date: "Mayo 7, 2021"
 output:
-  pdf_document: default
+  pdf_document:
+    keep_tex: yes
+    latex_engine: xelatex
 header-includes: \usepackage{float}
                  \usepackage[spanish]{babel}
                  \usepackage{hyperref}
@@ -41,7 +43,7 @@ circ.plot(x = angulosTortugasRad, stack = TRUE, bins = 23, shrink = 1.5, dotsep 
           main = "Datos de Tortugas")
 ```
 
-```{r, echo=FALSE, eval=FALSE}
+```{r, eval=FALSE}
 ##### Kernel de la densidad de Y = log R dado theta y mu #####
 kerY <- function(y, theta, mu) {
   b <- mu[1] * cos(theta) + mu[2] * sin(theta)
@@ -59,11 +61,13 @@ var0 <- function(theta, mu){
 }
 
 ##### Algoritmo Metropolis-Hastings #####
-
-MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
-  # La función Metro-Hast obtiene el promedio de todos los valores de la cadena. 
-  # Elimina el periodo de calentamiento, considera los saltos (lag) y promedia.
-  # Es decir, arroja el promedio de las muestra sin calentamiento y considerando el lag
+MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas, prom){
+  # La función Metro-Hast obtiene los valores simulados de un número dado de cadenas
+  # dado por el usuario, ó bien, se puede obtener el promedio de los valores de la
+  # si el argumento prom = TRUE 
+  # Elimina el periodo de calentamiento y considera los saltos (lag)
+  # Es decir, arroja los valores ó el promedio de las muestra sin calentamiento y 
+  # considerando el lag
   # Author: Gabriel N
   # Modificado por: Rodrigo Zúñiga Trejo & Luis Ramón Munive Hernández
   # Date: Abril 2021.
@@ -76,9 +80,11 @@ MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
 
   y0 <- rnorm(N, m0, sqrt(v0)) # Valores de arranque para las cadenas
   
-  y <- matrix(NA, nrow = tmues, ncol = N, byrow = TRUE) # Matriz para guardar las simulaciones 
-                                                     # en cada iteración de todas las cadenas
-  n.sample <- 1 # Contador para guardar las simulaciones de la muestra sin burn-in y con lag
+  # Matriz para guardar las simulaciones en cada iteración de las cadenas
+  y <- matrix(NA, nrow = tmues, ncol = N, byrow = TRUE)
+  
+  # Contador para guardar las simulaciones de la muestra sin burn y con lag 
+  n.sample <- 1
   
   # Iteraciones del algoritmo
   for (j in 1 : ite){
@@ -94,14 +100,26 @@ MetroHast <- function(f, theta, mu, burn, ite.inter, lag, tmues, Ncadenas){
       n.sample <- n.sample + 1
     }
   }
-  A <- apply(y, MARGIN = 2, FUN = mean) # Promedios de las cadenas considerando la muestra final
-  drop(A)
-  #drop(y) # Regresa todas las cadenas simuladas
+  # Promedios de las cadenas considerando la muestra final
+  A <- apply(y, MARGIN = 2, FUN = mean)
+  if(prom == TRUE){
+    drop(A)
+  }
+  else{
+    drop(y)
+  }
 }
 
 ##### Algoritmo Metropolis-Hastings dentro Gibbs #####
-
-MHdentroGibbs <- function(theta, N, burn.G, ite.inter.G, lag.G){
+MHdentroGibbs <- function(theta, N, burn.G, ite.inter.G, lag.G, 
+                          burn.MH, ite.inter.MH, lag.MH, tmues.MH){
+  # La función MHdentroGibbs obtiene los valores de n cadenas (tantas cómo elementos 
+  # en theta) vía el algoritmo Metropolis-Hastings dentro Gibbs
+  # Elimina el periodo de calentamiento y considera los saltos (lag)
+  # Es decir, arroja los valores de las cadenas sin calentamiento y considerando el lag
+  # Author: Gabriel N
+  # Modificado por: Rodrigo Zúñiga Trejo & Luis Ramón Munive Hernández
+  # Date: Abril 2021.
   n <- length(theta) # Número de datos
   
   ite <- burn.G + ite.inter.G + lag.G * N # Número total de iteraciones
@@ -115,22 +133,24 @@ MHdentroGibbs <- function(theta, N, burn.G, ite.inter.G, lag.G){
   
   mu1 <- rep(0, N) # Vector para guardar las simulaciones de mu1
   mu2 <- rep(0, N) # Vector para guardar las simulaciones de mu2
-  r <- matrix(data = 1, nrow = N, ncol = n, byrow = TRUE) # Matriz para guardar las simulaciones de r_i
+  # Matriz para guardar las simulaciones r_i (para una de las cadenas)
+  r <- matrix(data = 1, nrow = N, ncol = n, byrow = TRUE)
   
   cont <- 1 # Contador usado en la obtención de la muestra final sin burn-in y con lag
-  muaux1 <- 0 # Variable auxiliar en el algoritmo para guardar valores de mu1 en cada iteración
-  muaux2 <- 0 # Variable auxiliar en el algoritmo para guardar valores de mu2 en cada iteración
-  raux <- rep(1, n) # Vector auxiliar en el algoritmo para guardar valores de r_i en cada iteración
+  muaux1 <- 0 # Variable auxiliar para guardar valores de mu1 en cada iteración
+  muaux2 <- 0 # Variable auxiliar para guardar valores de mu2 en cada iteración
+  raux <- rep(1, n) # Vector auxiliar para guardar vectores r_i en cada iteración
   
   for(i in 2 : ite + 1){
-      muaux1 <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * muaux1 + n * mean(raux * cos(theta))),
+      muaux1 <- rnorm(1, mean = lambda1_n^(-1) * (lambda1_0 * muaux1 +
+                                                    n * mean(raux * cos(theta))),
                       sd = 1 / sqrt(lambda1_n))
-      muaux2 <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * muaux2 + n * mean(raux * sin(theta))),
+      muaux2 <- rnorm(1, mean = lambda2_n^(-1) * (lambda2_0 * muaux2 +
+                                                    n * mean(raux * sin(theta))),
                       sd = 1 / sqrt(lambda2_n))
-      #raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 7500, ite.inter = 2500,
-      #                  lag = 30, tmues = 100, Ncadenas = n)
-      raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = 0, ite.inter = 0,
-                          lag = 1, tmues = 100, Ncadenas = n)
+      raux <- MetroHast(f = kerY, theta = theta, mu = c(muaux1, muaux2), burn = burn.MH, 
+                        ite.inter = ite.inter.MH, lag = lag.MH, tmues = tmues.MH, 
+                        Ncadenas = n, prom = TRUE)
       if(i > Tburn & (i %% lag.G) == 0){
           mu1[cont] <- muaux1
           mu2[cont] <- muaux2
@@ -312,9 +332,27 @@ hist(x = pruebaMHdentroG2[[2]], probability = TRUE, col = "black", border = "whi
 abline(v = hdi(pruebaMHdentroG2[[2]])[[1]], col = "red", lwd = 3, lty = 2)
 abline(v = hdi(pruebaMHdentroG2[[2]])[[2]], col = "red", lwd = 3, lty = 2)
 ```
+  
+```{r, eval=FALSE}
+### Muestreando de la distribución de theta promedio
+### Función para obtener muestras de la distribución del ángulo 
+### aleatorio \theta promedio a partir de valores \mu_1 y \mu_2 
+thetaProm <- function(mu1, mu2){
+  n <- length(mu1)
+  thetaP <- rep(NA, n)
+  for(i in 1 : n){
+    thetaP[i] <- atan2(mu2[i], mu1[i])
+    if(thetaP[i] < 0){
+      thetaP[i] <- thetaP[i] + 2 * pi
+    }
+  }
+  return(thetaP)
+}
+```
 
-```{r, echo=FALSE, eval=FALSE}
-### Muestreando de la distribución predictiva del ángulo aleatorio \theta
+```{r, eval=FALSE}
+### Función para obtener muestras de la distribución predictiva del 
+### ángulo aleatorio \theta a partir de valores \mu_1 y \mu_2 
 predTheta <- function(mu1, mu2){
   n <- length(mu1)
   x1 <- rep(NA, n)
@@ -324,59 +362,46 @@ predTheta <- function(mu1, mu2){
     x1[i] <- rnorm(n = 1, mean = mu1[i], sd = 1)
     x2[i] <- rnorm(n = 1, mean = mu2[i], sd = 1)
     theta[i] <- atan2(x2[i], x1[i])
+    if(theta[i] < 0){
+      theta[i] <- theta[i] + 2 * pi
+    }
   }
   return(theta)
 }
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-### Muestreando de la distribución de theta promedio
-thetaProm <- function(mu1, mu2){
-  n <- length(mu1)
-  thetaP <- rep(NA, n)
-  for(i in 1 : n){
-    thetaP[i] <- atan2(mu2[i], mu1[i])
-  }
-  return(thetaP)
-}
-```
-
-```{r, echo=FALSE, eval=FALSE}
 muestraTheta <- predTheta(pruebaMHdentroG2[[1]], pruebaMHdentroG2[[2]])
-
-muestraThetaPositivos <- c(muestraTheta[which(muestraTheta > 0)], muestraTheta[which(muestraTheta < 0)] + 2 * pi )
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-hist(x = muestraThetaPositivos, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
+hist(x = muestraTheta, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
 #circ.plot(x = muestraThetaPositivos, stack = TRUE, bins = 23, shrink = 1.5, dotsep = 200, 
 #          main = TeX("Muestra de $\\theta_{n+1}$"))
-rose.diag(x = muestraThetaPositivos, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\theta_{n+1}$"))
+rose.diag(x = muestraTheta, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\theta_{n+1}$"))
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-hist(x = muestraThetaPositivos, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
-abline(v = hdi(muestraThetaPositivos, credMass = 0.8)[[1]], col = "red", lwd = 3, lty = 2)
-abline(v = hdi(muestraThetaPositivos, credMass = 0.8)[[2]], col = "red", lwd = 3, lty = 2)
+hist(x = muestraTheta, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
+abline(v = hdi(muestraTheta, credMass = 0.8)[[1]], col = "red", lwd = 3, lty = 2)
+abline(v = hdi(muestraTheta, credMass = 0.8)[[2]], col = "red", lwd = 3, lty = 2)
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
 muestraThetaProm <- thetaProm(pruebaMHdentroG2[[1]], pruebaMHdentroG2[[2]])
-
-muestraThetaPromPositivos <- c(muestraThetaProm[which(muestraThetaProm > 0)], muestraThetaProm[which(muestraThetaProm < 0)] + 2 * pi )
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-hist(x = muestraThetaPromPositivos, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\bar{\\theta}$"), xlab = TeX("$\\bar{\\theta}$"), las = 1)
-abline(v = hdi(muestraThetaPromPositivos, credMass = 0.95)[[1]], col = "red", lwd = 3, lty = 2)
-abline(v = hdi(muestraThetaPromPositivos, credMass = 0.95)[[2]], col = "red", lwd = 3, lty = 2)
+hist(x = muestraThetaProm, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\bar{\\theta}$"), xlab = TeX("$\\bar{\\theta}$"), las = 1)
+abline(v = hdi(muestraThetaProm, credMass = 0.95)[[1]], col = "red", lwd = 3, lty = 2)
+abline(v = hdi(muestraThetaProm, credMass = 0.95)[[2]], col = "red", lwd = 3, lty = 2)
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-rose.diag(x = muestraThetaPromPositivos, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\bar{\\theta}$"))
+rose.diag(x = muestraThetaProm, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\bar{\\theta}$"))
 ```
 
 ```{r, eval=FALSE, echo=FALSE}
@@ -384,7 +409,7 @@ rose.diag(x = muestraThetaPromPositivos, bins = 23, shrink = 1.1, prop = 2.1, ma
 ### promediando la muestra obtenida de 100 con un lag de 1 en cada iteración de Metropolis-Hastings
 set.seed(27042021)
 tiempoInicioMHdentroG3 <- Sys.time()
-pruebaMHdentroG3 <- MHdentroGibbs(theta = angulosTortugasRad, N = 10000, burn.G = 0, ite.inter.G = 0, lag = 1)
+pruebaMHdentroG3 <- MHdentroGibbs(theta = angulosTortugasRad, N = 10000, burn.G = 0, ite.inter.G = 0, lag.G = 1, burn.MH = 0, ite.inter.MH = 0, lag.MH = 1, tmues.MH = 100)
 tiempoFinMHdentroG3 <- Sys.time()
 tiempoEjecMHdentroG3 <- tiempoFinMHdentroG3 - tiempoInicioMHdentroG3
 tiempoEjecMHdentroG3
@@ -395,7 +420,7 @@ tiempoEjecMHdentroG3
 ### promediando la muestra obtenida de 100 con un lag de 1 en cada iteración de Metropolis-Hastings
 set.seed(27042021)
 tiempoInicioMHdentroG4 <- Sys.time()
-pruebaMHdentroG4 <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000, burn.G = 1500, ite.inter.G = 500, lag = 5)
+pruebaMHdentroG4 <- MHdentroGibbs(theta = angulosTortugasRad, N = 1000, burn.G = 1500, ite.inter.G = 500, lag.G = 5, burn.MH = 0, ite.inter.MH = 0, lag.MH = 1, tmues.MH = 100)
 tiempoFinMHdentroG4 <- Sys.time()
 tiempoEjecMHdentroG4 <- tiempoFinMHdentroG4 - tiempoInicioMHdentroG4
 tiempoEjecMHdentroG4
@@ -413,39 +438,34 @@ abline(v = hdi(pruebaMHdentroG4[[2]])[[2]], col = "red", lwd = 3, lty = 2)
 
 ```{r, echo=FALSE, eval=FALSE}
 muestraTheta2 <- predTheta(pruebaMHdentroG4[[1]], pruebaMHdentroG4[[2]])
-
-muestraThetaPositivos2 <- c(muestraTheta2[which(muestraTheta2 > 0)], muestraTheta2[which(muestraTheta2 < 0)] + 2 * pi )
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-hist(x = muestraThetaPositivos2, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
+hist(x = muestraTheta2, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
 #circ.plot(x = muestraThetaPositivos, stack = TRUE, bins = 23, shrink = 1.5, dotsep = 200, 
 #          main = TeX("Muestra de $\\theta_{n+1}$"))
-rose.diag(x = muestraThetaPositivos2, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\theta_{n+1}$"))
+rose.diag(x = muestraTheta2, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\theta_{n+1}$"))
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-hist(x = muestraThetaPositivos2, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
-abline(v = hdi(muestraThetaPositivos2, credMass = 0.8)[[1]], col = "red", lwd = 3, lty = 2)
-abline(v = hdi(muestraThetaPositivos2, credMass = 0.8)[[2]], col = "red", lwd = 3, lty = 2)
+hist(x = muestraTheta2, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\theta_{n+1}$"), xlab = TeX("$\\theta$"), las = 1)
+abline(v = hdi(muestraTheta2, credMass = 0.8)[[1]], col = "red", lwd = 3, lty = 2)
+abline(v = hdi(muestraTheta2, credMass = 0.8)[[2]], col = "red", lwd = 3, lty = 2)
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
 muestraThetaProm2 <- thetaProm(pruebaMHdentroG4[[1]], pruebaMHdentroG4[[2]])
-
-muestraThetaPromPositivos2 <- c(muestraThetaProm2[which(muestraThetaProm2 > 0)], muestraThetaProm2[which(muestraThetaProm2 < 0)] + 2 * pi )
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-hist(x = muestraThetaPromPositivos2, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\bar{\\theta}$"), xlab = TeX("$\\bar{\\theta}$"), las = 1)
-abline(v = hdi(muestraThetaPromPositivos2, credMass = 0.95)[[1]], col = "red", lwd = 3, lty = 2)
-abline(v = hdi(muestraThetaPromPositivos2, credMass = 0.95)[[2]], col = "red", lwd = 3, lty = 2)
+hist(x = muestraThetaProm2, probability = TRUE, col = "black", border = "white", main = TeX("Histograma de la muestra de $\\bar{\\theta}$"), xlab = TeX("$\\bar{\\theta}$"), las = 1)
+abline(v = hdi(muestraThetaProm2, credMass = 0.95)[[1]], col = "red", lwd = 3, lty = 2)
+abline(v = hdi(muestraThetaProm2, credMass = 0.95)[[2]], col = "red", lwd = 3, lty = 2)
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
-rose.diag(x = muestraThetaPromPositivos2, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\bar{\\theta}$"))
+rose.diag(x = muestraThetaProm2, bins = 23, shrink = 1.1, prop = 2.1, main = TeX("Muestra de $\\bar{\\theta}$"))
 ```
-
